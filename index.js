@@ -8,13 +8,14 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const logger = require('./logger');
 
-
 const app = express();
+
+// Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(morgan('combined')); // log das requisições padrão no console
+app.use(morgan('combined')); // log no console
 
-// Configurar pool do PostgreSQL
+// PostgreSQL Pool
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -23,7 +24,7 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT),
 });
 
-// Swagger setup
+// Swagger config
 const options = {
   definition: {
     openapi: '3.0.0',
@@ -33,11 +34,29 @@ const options = {
       description: 'API para gerenciar tarefas',
     },
   },
-  apis: ['./index.js'], // arquivo onde ficam os docs
+  apis: ['./index.js'], // ← aqui ele vai buscar os comentários JSDoc
 };
+
 const swaggerSpec = swaggerJsdoc(options);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+/**
+ * @swagger
+ * tags:
+ *   name: Tasks
+ *   description: Endpoints para gerenciamento de tarefas
+ */
+
+/**
+ * @swagger
+ * /tasks:
+ *   get:
+ *     summary: Lista todas as tarefas
+ *     tags: [Tasks]
+ *     responses:
+ *       200:
+ *         description: Lista de tarefas
+ */
 app.get('/tasks', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM tasks ORDER BY id ASC');
@@ -49,6 +68,24 @@ app.get('/tasks', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /tasks/{id}:
+ *   get:
+ *     summary: Buscar tarefa por ID
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Tarefa encontrada
+ *       404:
+ *         description: Tarefa não encontrada
+ */
 app.get('/tasks/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -65,6 +102,29 @@ app.get('/tasks/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /tasks:
+ *   post:
+ *     summary: Criar uma nova tarefa
+ *     tags: [Tasks]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Tarefa criada
+ */
 app.post('/tasks', async (req, res) => {
   const { title, description } = req.body;
   try {
@@ -81,6 +141,37 @@ app.post('/tasks', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /tasks/{id}:
+ *   put:
+ *     summary: Atualizar uma tarefa existente
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               completed:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Tarefa atualizada
+ *       404:
+ *         description: Tarefa não encontrada
+ */
 app.put('/tasks/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const { title, description, completed } = req.body;
@@ -102,6 +193,24 @@ app.put('/tasks/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /tasks/{id}:
+ *   delete:
+ *     summary: Deletar uma tarefa
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       204:
+ *         description: Tarefa deletada com sucesso
+ *       404:
+ *         description: Tarefa não encontrada
+ */
 app.delete('/tasks/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   try {
@@ -119,13 +228,13 @@ app.delete('/tasks/:id', async (req, res) => {
   }
 });
 
+// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`API rodando na porta ${PORT}`);
-  logger.info(`API iniciada na porta ${PORT}`);
-
   console.log(`Swagger UI disponível em http://localhost:${PORT}/api-docs`);
 
+  logger.info(`API iniciada na porta ${PORT}`);
   logger.info('Teste de log manual para BetterStack', { teste: 'funcionando' })
     .then(() => console.log('Log enviado com sucesso para BetterStack'))
     .catch((err) => console.error('Erro ao enviar log manual:', err));
