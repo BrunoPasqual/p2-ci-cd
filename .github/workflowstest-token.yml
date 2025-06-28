@@ -1,0 +1,30 @@
+name: Testar Token de Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-token:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Configurar Git para testes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Criar arquivo teste e fazer commit/push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} test-repo
+          cd test-repo
+          echo "Testando permissão de push em $(date)" >> testfile.txt
+          git add testfile.txt
+          git commit -m "Teste de permissão do GITHUB_TOKEN"
+          git push origin main
