@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/BrunoPasqual/p2-ci-cd/compare/v1.3.0...v1.4.0) (2025-06-28)
+
+
+### Features
+
+* githubactions configurado, teste 5 ([f04152d](https://github.com/BrunoPasqual/p2-ci-cd/commit/f04152d033bb339abe00863fc85238f96fb17a44))
+
 # [1.3.0](https://github.com/BrunoPasqual/p2-ci-cd/compare/v1.2.0...v1.3.0) (2025-06-28)
 
 
