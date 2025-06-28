@@ -7,60 +7,67 @@ on:
 
 jobs:
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
-
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: '20.8.1'
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Instalar dependências
-        run: npm install
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      - name: Verificar secret PAT_TOKEN
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          if [ -z "$PAT_TOKEN" ]; then
-            echo "Erro: PAT_TOKEN não está definido!"
-            exit 1
-          else
-            echo "Secret PAT_TOKEN está definido."
-          fi
+      - uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - name: Rodar semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - run: |
+          rm -rf node_modules
+          npm cache clean --force
+
+      - run: npm ci
+
+      - run: npm run build  # se não tiver build, pode remover essa linha
+
+      - name: Run semantic-release
+        id: semantic
         run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }} # ou GITHUB_TOKEN se o token estiver com permissões corretas
 
-  docker_build_and_push:
+      - name: Get latest tag (version)
+        id: get_version
+        run: |
+          echo "version=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
+
+  docker:
     needs: release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ needs.release.outputs.version != '' }}
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Login no Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Extrair versão da tag
-        id: extract_tag
-        run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Build da imagem com versão e latest
+      - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/p2-backend:${{ steps.extract_tag.outputs.TAG }} .
-          docker tag ${{ secrets.DOCKER_USERNAME }}/p2-backend:${{ steps.extract_tag.outputs.TAG }} ${{ secrets.DOCKER_USERNAME }}/p2-backend:latest
+          docker build \
+            -t ${{ secrets.DOCKER_USERNAME }}/p2-backend:${{ needs.release.outputs.version }} .
 
-      - name: Push das imagens para Docker Hub
+      - name: Tag as latest
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/p2-backend:${{ steps.extract_tag.outputs.TAG }}
+          docker tag ${{ secrets.DOCKER_USERNAME }}/p2-backend:${{ needs.release.outputs.version }} ${{ secrets.DOCKER_USERNAME }}/p2-backend:latest
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/p2-backend:${{ needs.release.outputs.version }}
           docker push ${{ secrets.DOCKER_USERNAME }}/p2-backend:latest
