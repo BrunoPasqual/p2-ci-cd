@@ -21,6 +21,17 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
+      - name: Verificar secret PAT_TOKEN
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          if [ -z "$PAT_TOKEN" ]; then
+            echo "Erro: PAT_TOKEN não está definido!"
+            exit 1
+          else
+            echo "Secret PAT_TOKEN está definido."
+          fi
+
       - name: Rodar semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
